@@ -5,6 +5,8 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Arrays;
 
+import static li.tengfei.apng.base.ApngConst.*;
+
 /**
  * Apng加载器（从Apng文件中读取每一帧的控制块及图像）
  *
@@ -13,44 +15,44 @@ import java.util.Arrays;
  */
 public class ApngReader {
 
+    private MappedByteBuffer mBuffer;
+
+    private ApngMmapParserChunk mChunk;
+
+    private int mNextPosAfterActl; // next chunk's offset after actl
+
+    private PngStream pngStream = new PngStream();
+
     /**
      * chunks should be copied to each frame
      */
     public static final int[] COPIED_TYPE_CODES = {
-            ApngConst.CODE_iCCP,
-            ApngConst.CODE_sRGB,
-            ApngConst.CODE_sBIT,
-            ApngConst.CODE_gAMA,
-            ApngConst.CODE_cHRM,
+            CODE_iCCP,
+            CODE_sRGB,
+            CODE_sBIT,
+            CODE_gAMA,
+            CODE_cHRM,
 
-            ApngConst.CODE_PLTE,
+            CODE_PLTE,
 
-            ApngConst.CODE_tRNS,
-            ApngConst.CODE_hIST,
-            ApngConst.CODE_bKGD,
-            ApngConst.CODE_pHYs,
-            ApngConst.CODE_sPLT
+            CODE_tRNS,
+            CODE_hIST,
+            CODE_bKGD,
+            CODE_pHYs,
+            CODE_sPLT
     };
 
     static {
         Arrays.sort(COPIED_TYPE_CODES);
     }
 
-    private MappedByteBuffer mBuffer;
-    private ApngMmapParserChunk mChunk;
-    private int mNextPosAfterActl; // next chunk's offset after actl
-    private PngStream pngStream = new PngStream();
-    private int TEST_BUF_SIZE = 1024 * 300;
-    private byte[] testBuf = new byte[TEST_BUF_SIZE];
-    private int id = 0;
-
     public ApngReader(String apngFile) throws IOException, FormatNotSupportException {
         RandomAccessFile f = new RandomAccessFile(apngFile, "r");
         mBuffer = f.getChannel().map(FileChannel.MapMode.READ_ONLY, 0, f.length());
         f.close();
-        if (mBuffer.getInt() != ApngConst.PNG_SIG
-                && mBuffer.getInt(4) != ApngConst.PNG_SIG_VER
-                && mBuffer.getInt(8) != ApngConst.CODE_IHDR) {
+        if (mBuffer.getInt() != PNG_SIG
+                && mBuffer.getInt(4) != PNG_SIG_VER
+                && mBuffer.getInt(8) != CODE_IHDR) {
             throw new FormatNotSupportException("Not a png/apng file");
         }
     }
@@ -71,8 +73,8 @@ public class ApngReader {
         pngStream.setIHDR(mChunk.duplicateData());
 
         // locate ACTL chunk
-        while (mChunk.typeCode != ApngConst.CODE_acTL) {
-            if (mChunk.typeCode == ApngConst.CODE_IEND || (mNextPosAfterActl = mChunk.parseNext()) < 0) {
+        while (mChunk.typeCode != CODE_acTL) {
+            if (mChunk.typeCode == CODE_IEND || (mNextPosAfterActl = mChunk.parseNext()) < 0) {
                 throw new FormatNotSupportException("No ACTL chunk founded, not an apng file. (maybe it's a png only)");
             }
         }
@@ -102,8 +104,8 @@ public class ApngReader {
     public ApngFrame nextFrame() throws IOException {
         pngStream.clearDataChunks();
         // locate next FCTL chunk
-        while (mChunk.typeCode != ApngConst.CODE_fcTL) {
-            if (mChunk.typeCode == ApngConst.CODE_IEND || mChunk.parseNext() < 0) {
+        while (mChunk.typeCode != CODE_fcTL) {
+            if (mChunk.typeCode == CODE_IEND || mChunk.parseNext() < 0) {
                 return null;
             }
             handleOtherChunk(mChunk); // check and handle PLTE before FCTL (always the first one just after acTL)
@@ -112,8 +114,8 @@ public class ApngReader {
         mChunk.assignTo(frame);
 
         // locate next IDAT or fdAt chunk
-        while (mChunk.typeCode != ApngConst.CODE_IDAT && mChunk.typeCode != ApngConst.CODE_fdAT) {
-            if (mChunk.typeCode == ApngConst.CODE_IEND || mChunk.parseNext() < 0) {
+        while (mChunk.typeCode != CODE_IDAT && mChunk.typeCode != CODE_fdAT) {
+            if (mChunk.typeCode == CODE_IEND || mChunk.parseNext() < 0) {
                 return null;
             }
             handleOtherChunk(mChunk); // check and handle PLTE before FCTL (always the first one just after acTL)
@@ -121,12 +123,12 @@ public class ApngReader {
         // collect all consecutive dat chunks
         boolean needUpdateIHDR = true;
         int dataOffset = mChunk.getOffset();
-        while (mChunk.typeCode == ApngConst.CODE_fdAT || mChunk.typeCode == ApngConst.CODE_IDAT) {
+        while (mChunk.typeCode == CODE_fdAT || mChunk.typeCode == CODE_IDAT) {
             if (needUpdateIHDR) {
                 pngStream.updateIHDR(frame.getWidth(), frame.getHeight());
                 needUpdateIHDR = false;
             }
-            if (mChunk.typeCode == ApngConst.CODE_fdAT) {
+            if (mChunk.typeCode == CODE_fdAT) {
                 pngStream.addDataChunk(new Fdat2IdatChunk(mChunk));
             } else {
                 pngStream.addDataChunk(new ApngMmapParserChunk(mChunk));
@@ -156,6 +158,11 @@ public class ApngReader {
 
         return frame;
     }
+
+    private int TEST_BUF_SIZE = 1024 * 300;
+    private byte[] testBuf = new byte[TEST_BUF_SIZE];
+
+    private int id = 0;
 
     private void saveToFile(InputStream is, String fn) {
         try {
