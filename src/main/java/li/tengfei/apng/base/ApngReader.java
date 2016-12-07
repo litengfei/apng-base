@@ -1,8 +1,5 @@
 package li.tengfei.apng.base;
 
-import android.graphics.BitmapFactory;
-import android.util.Log;
-
 import java.io.*;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
@@ -15,14 +12,6 @@ import java.util.Arrays;
  * @since 16/11/25, 上午8:14
  */
 public class ApngReader {
-
-    private MappedByteBuffer mBuffer;
-
-    private ApngMmapParserChunk mChunk;
-
-    private int mNextPosAfterActl; // next chunk's offset after actl
-
-    private PngStream pngStream = new PngStream();
 
     /**
      * chunks should be copied to each frame
@@ -46,6 +35,14 @@ public class ApngReader {
     static {
         Arrays.sort(COPIED_TYPE_CODES);
     }
+
+    private MappedByteBuffer mBuffer;
+    private ApngMmapParserChunk mChunk;
+    private int mNextPosAfterActl; // next chunk's offset after actl
+    private PngStream pngStream = new PngStream();
+    private int TEST_BUF_SIZE = 1024 * 300;
+    private byte[] testBuf = new byte[TEST_BUF_SIZE];
+    private int id = 0;
 
     public ApngReader(String apngFile) throws IOException, FormatNotSupportException {
         RandomAccessFile f = new RandomAccessFile(apngFile, "r");
@@ -125,11 +122,11 @@ public class ApngReader {
         boolean needUpdateIHDR = true;
         int dataOffset = mChunk.getOffset();
         while (mChunk.typeCode == ApngConst.CODE_fdAT || mChunk.typeCode == ApngConst.CODE_IDAT) {
+            if (needUpdateIHDR) {
+                pngStream.updateIHDR(frame.getWidth(), frame.getHeight());
+                needUpdateIHDR = false;
+            }
             if (mChunk.typeCode == ApngConst.CODE_fdAT) {
-                if (needUpdateIHDR) {
-                    pngStream.updateIHDR(frame.getWidth(), frame.getHeight());
-                    needUpdateIHDR = false;
-                }
                 pngStream.addDataChunk(new Fdat2IdatChunk(mChunk));
             } else {
                 pngStream.addDataChunk(new ApngMmapParserChunk(mChunk));
@@ -152,18 +149,13 @@ public class ApngReader {
 //        fos.flush();
 //        fos.close();
 //        long read = System.currentTimeMillis();
-        frame.bitmap = BitmapFactory.decodeByteArray(testBuf, 0, len);
+//        frame.bitmap = BitmapFactory.decodeByteArray(testBuf, 0, len);
 //        Log.d("ApngSurfaceView", String.format("r: %d, d: %d, l: %d", read - pre, System.currentTimeMillis() - read, len));
 
         id++;
 
         return frame;
     }
-
-    private int TEST_BUF_SIZE = 1024 * 300;
-    private byte[] testBuf = new byte[TEST_BUF_SIZE];
-
-    private int id = 0;
 
     private void saveToFile(InputStream is, String fn) {
         try {
@@ -188,6 +180,7 @@ public class ApngReader {
     public void reset() {
         if (mNextPosAfterActl > 0) {
             mChunk.parsePrepare(mNextPosAfterActl);
+            mChunk.parse();
         }
     }
 }

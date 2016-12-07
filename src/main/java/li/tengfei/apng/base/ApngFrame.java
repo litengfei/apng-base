@@ -1,7 +1,5 @@
 package li.tengfei.apng.base;
 
-import android.graphics.Bitmap;
-
 /**
  * Apng Frame Data
  *
@@ -10,22 +8,22 @@ import android.graphics.Bitmap;
  */
 public class ApngFrame extends ApngFCTLChunk {
 
-    Bitmap bitmap;
-
-    /**
-     * get current frame's bitmap, AND MUST RECYCLE IT AFTER USED
-     */
-    public Bitmap getBitmap() {
-        return bitmap;
-    }
-
-    /**
-     * recycle bitmap
-     */
-    public void recycleBitmap() {
-        if (bitmap != null) {
-            bitmap.recycle();
-            bitmap = null;
-        }
-    }
+//    Bitmap bitmap;
+//
+//    /**
+//     * get current frame's bitmap, AND MUST RECYCLE IT AFTER USED
+//     */
+//    public Bitmap getBitmap() {
+//        return bitmap;
+//    }
+//
+//    /**
+//     * recycle bitmap
+//     */
+//    public void recycleBitmap() {
+//        if (bitmap != null) {
+//            bitmap.recycle();
+//            bitmap = null;
+//        }
+//    }
 }
