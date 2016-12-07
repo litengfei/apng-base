@@ -1,5 +1,7 @@
 package li.tengfei.apng.base;
 
+import java.io.InputStream;
+
 /**
  * Apng Frame Data
  *
@@ -8,22 +10,9 @@ package li.tengfei.apng.base;
  */
 public class ApngFrame extends ApngFCTLChunk {
 
-//    Bitmap bitmap;
-//
-//    /**
-//     * get current frame's bitmap, AND MUST RECYCLE IT AFTER USED
-//     */
-//    public Bitmap getBitmap() {
-//        return bitmap;
-//    }
-//
-//    /**
-//     * recycle bitmap
-//     */
-//    public void recycleBitmap() {
-//        if (bitmap != null) {
-//            bitmap.recycle();
-//            bitmap = null;
-//        }
-//    }
+    InputStream imageStream;
+
+    public InputStream getImageStream() {
+        return imageStream;
+    }
 }

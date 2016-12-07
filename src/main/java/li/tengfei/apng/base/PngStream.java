@@ -11,7 +11,7 @@ import java.util.zip.CRC32;
  * @author ltf
  * @since 16/11/28, 上午8:20
  */
-class PngStream extends InputStream {
+public class PngStream extends InputStream {
     // fast data
     private static final byte[] PNG_SIG_DAT = {-119, 80, 78, 71, 13, 10, 26, 10};
     private static final int PNG_SIG_LEN = PNG_SIG_DAT.length;

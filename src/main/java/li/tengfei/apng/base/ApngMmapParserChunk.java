@@ -14,7 +14,8 @@ public class ApngMmapParserChunk extends ApngPaserChunk {
     protected final MappedByteBuffer mBuf;
 
     // used to store the read pointer when Read Chunk As Stream
-    private int lastPos;
+    // when lastPos>=0, it's locked, else if lastPost=-1, it's not locked
+    private int lastPos = -1;
 
     public ApngMmapParserChunk(MappedByteBuffer mBuf) {
         this.mBuf = mBuf;
@@ -30,6 +31,7 @@ public class ApngMmapParserChunk extends ApngPaserChunk {
     public void parsePrepare(int offset) {
         super.parsePrepare(offset);
         mBuf.position(offset);
+        lastPos = -1; // parse prepare will clear readLock
     }
 
     @Override
@@ -79,7 +81,10 @@ public class ApngMmapParserChunk extends ApngPaserChunk {
      * restore read pointer lastPosition before call readAsStream()
      */
     void unlockRead() {
-        mBuf.position(lastPos);
+        if (lastPos >= 0) {
+            mBuf.position(lastPos);
+            lastPos = -1;
+        }
     }
 
     /**
