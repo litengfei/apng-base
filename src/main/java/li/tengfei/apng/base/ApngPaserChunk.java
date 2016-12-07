@@ -65,6 +65,9 @@ abstract class ApngPaserChunk extends ApngChunk implements ApngDataSupplier {
      * relocate current chunk to next, and parse the chunk info,
      * return next chunk(the one after current parsed chunk)'s start position,
      * or return -1 if this is the last chunk
+     * !!! ATTENTION !!!
+     * when parsePrepare() called, parseNext() = parse(),
+     * it will start parse from current prepared offset
      */
     public int parseNext() {
         parsePrepare(nextOffset);

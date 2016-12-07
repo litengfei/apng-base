@@ -9,14 +9,14 @@ import java.nio.MappedByteBuffer;
  * @author ltf
  * @since 16/11/26, 下午12:11
  */
-class ApngMmapParserChunk extends ApngPaserChunk {
+public class ApngMmapParserChunk extends ApngPaserChunk {
     // data buffer
     protected final MappedByteBuffer mBuf;
 
     // used to store the read pointer when Read Chunk As Stream
     private int lastPos;
 
-    ApngMmapParserChunk(MappedByteBuffer mBuf) {
+    public ApngMmapParserChunk(MappedByteBuffer mBuf) {
         this.mBuf = mBuf;
     }
 
@@ -115,7 +115,7 @@ class ApngMmapParserChunk extends ApngPaserChunk {
     /**
      * duplicate this chunk's data to an array
      */
-    byte[] duplicateData() throws IOException {
+    public byte[] duplicateData() throws IOException {
         byte[] data = new byte[getStreamLen()];
         lockRead();
         readAsStream(data, 0, data.length);
