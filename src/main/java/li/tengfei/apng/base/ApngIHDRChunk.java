@@ -15,6 +15,34 @@ public class ApngIHDRChunk extends ApngDataChunk {
     private int filterMethod;
     private int interlaceMethod;
 
+    public int getWidth() {
+        return width;
+    }
+
+    public int getHeight() {
+        return height;
+    }
+
+    public int getBitDepth() {
+        return bitDepth;
+    }
+
+    public int getColorType() {
+        return colorType;
+    }
+
+    public int getCompressMethod() {
+        return compressMethod;
+    }
+
+    public int getFilterMethod() {
+        return filterMethod;
+    }
+
+    public int getInterlaceMethod() {
+        return interlaceMethod;
+    }
+
     @Override
     protected void parseData(ApngDataSupplier data) {
         this.width = data.readInt();

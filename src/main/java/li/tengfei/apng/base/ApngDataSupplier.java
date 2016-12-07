@@ -4,7 +4,7 @@ package li.tengfei.apng.base;
  * @author ltf
  * @since 16/11/29, 下午12:32
  */
-interface ApngDataSupplier {
+public interface ApngDataSupplier {
 
     /**
      * read int from data and move the pointer 4 byte ahead
