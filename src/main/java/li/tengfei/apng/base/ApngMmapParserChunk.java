@@ -112,9 +112,12 @@ public class ApngMmapParserChunk extends ApngPaserChunk {
      */
     void assignTo(ApngDataChunk dataChunk) {
         int pos = mBuf.position();
-        parsePrepare(offset);
-        dataChunk.parse(this);
-        mBuf.position(pos);
+        mBuf.position(offset);
+        try {
+            dataChunk.parse(this);
+        } finally {
+            mBuf.position(pos);
+        }
     }
 
     /**
