@@ -1,6 +1,7 @@
 package li.tengfei.apng.base;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Arrays;
@@ -38,10 +39,10 @@ public class ApngReader {
         Arrays.sort(COPIED_TYPE_CODES);
     }
 
-    private MappedByteBuffer mBuffer;
-    private ApngMmapParserChunk mChunk;
-    private int mNextPosAfterActl; // next chunk's offset after actl
-    private PngStream mPngStream = new PngStream();
+    private final MappedByteBuffer mBuffer;
+    private final ApngMmapParserChunk mChunk;
+    private final PngStream mPngStream = new PngStream();
+    private ApngACTLChunk mActlChunk;
 
     public ApngReader(String apngFile) throws IOException, FormatNotSupportException {
         RandomAccessFile f = new RandomAccessFile(apngFile, "r");
@@ -52,33 +53,48 @@ public class ApngReader {
                 && mBuffer.getInt(8) != CODE_IHDR) {
             throw new FormatNotSupportException("Not a png/apng file");
         }
+        mChunk = new ApngMmapParserChunk(mBuffer);
+        reset();
     }
 
     /**
-     * prepare to read frames' data from the file
+     * get the acTL chunk information
      *
      * @return animation control info
      * @throws IOException
      * @throws FormatNotSupportException
      */
-    public ApngACTLChunk prepare() throws IOException, FormatNotSupportException {
-        mChunk = new ApngMmapParserChunk(mBuffer);
+    public ApngACTLChunk getACTL() throws IOException, FormatNotSupportException {
+        if (mActlChunk != null) return mActlChunk;
+        int pos = mBuffer.position();
+        try {
+            ApngMmapParserChunk tmpChunk = new ApngMmapParserChunk(mBuffer);
+            // locate first chunk (IHDR)
+            tmpChunk.parsePrepare(8);
+            tmpChunk.parse();
 
-        // locate IHDR
-        mChunk.parsePrepare(8);
-        mChunk.parse();
-        mPngStream.setIHDR(mChunk.duplicateData());
-
-        // locate ACTL chunk
-        while (mChunk.typeCode != CODE_acTL) {
-            if (mChunk.typeCode == CODE_IEND || (mNextPosAfterActl = mChunk.parseNext()) < 0) {
-                throw new FormatNotSupportException("No ACTL chunk founded, not an apng file. (maybe it's a png only)");
+            // locate ACTL chunk
+            while (tmpChunk.typeCode != CODE_acTL) {
+                if (tmpChunk.typeCode == CODE_IEND || tmpChunk.parseNext() < 0) {
+                    throw new FormatNotSupportException("No ACTL chunk founded, not an apng file. (maybe it's a png only)");
+                }
             }
-        }
 
-        ApngACTLChunk mActlChunk = new ApngACTLChunk();
-        mChunk.assignTo(mActlChunk);
+            handleACTL(tmpChunk);
+        } finally {
+            mBuffer.position(pos);
+        }
         return mActlChunk;
+    }
+
+    /**
+     * hanlde actl chunk
+     */
+    private void handleACTL(ApngMmapParserChunk chunk) throws IOException {
+        if (mActlChunk == null) {
+            mActlChunk = new ApngACTLChunk();
+            chunk.assignTo(mActlChunk);
+        }
     }
 
     /**
@@ -92,40 +108,68 @@ public class ApngReader {
 
     /**
      * get next frame control info & bitmap
-     * <p>
-     * !!! MUST RECYCLE THE BITMAP AFTER USED THE FRAME !!!
      *
-     * @return next frame control info, or null if no next FCTL chunk & IDAT/FDAT chunk exists
+     * @return next frame control info, or null if no next FCTL chunk || no next IDAT/FDAT
      * @throws IOException
      */
     public ApngFrame nextFrame() throws IOException {
+        // reset read pointers from previous frame's lock
         mPngStream.clearDataChunks();
+        mPngStream.resetPos();
         mChunk.unlockRead();
+
         // locate next FCTL chunk
+        boolean ihdrCopied = false;
         while (mChunk.typeCode != CODE_fcTL) {
-            if (mChunk.typeCode == CODE_IEND || mChunk.parseNext() < 0) {
-                return null;
+            switch (mChunk.typeCode) {
+                case CODE_IEND:
+                    return null;
+                case CODE_IHDR:
+                    mPngStream.setIHDR(mChunk.duplicateData());
+                    break;
+                case CODE_acTL:
+                    handleACTL(mChunk);
+                    ihdrCopied = true;
+                    break;
+                default:
+                    handleOtherChunk(mChunk);
             }
-            handleOtherChunk(mChunk); // check and handle PLTE before FCTL (always the first one just after acTL)
+            mChunk.parseNext();
         }
+
+        // located at FCTL chunk
         ApngFrame frame = new ApngFrame();
         mChunk.assignTo(frame);
 
         // locate next IDAT or fdAt chunk
+        mChunk.parseNext();// first move next from current FCTL
         while (mChunk.typeCode != CODE_IDAT && mChunk.typeCode != CODE_fdAT) {
-            if (mChunk.typeCode == CODE_IEND || mChunk.parseNext() < 0) {
-                return null;
+            switch (mChunk.typeCode) {
+                case CODE_IEND:
+                    return null;
+                case CODE_IHDR:
+                    mPngStream.setIHDR(mChunk.duplicateData());
+                    ihdrCopied = true;
+                    break;
+                case CODE_acTL:
+                    handleACTL(mChunk);
+                    break;
+                default:
+                    handleOtherChunk(mChunk);
             }
-            handleOtherChunk(mChunk); // check and handle PLTE before FCTL (always the first one just after acTL)
+            mChunk.parseNext();
         }
+
+        // located at first IDAT or fdAT chunk
         // collect all consecutive dat chunks
         boolean needUpdateIHDR = true;
         int dataOffset = mChunk.getOffset();
         while (mChunk.typeCode == CODE_fdAT || mChunk.typeCode == CODE_IDAT) {
-            if (needUpdateIHDR) {
+            if (needUpdateIHDR && (!ihdrCopied || mChunk.typeCode == CODE_fdAT)) {
                 mPngStream.updateIHDR(frame.getWidth(), frame.getHeight());
                 needUpdateIHDR = false;
             }
+
             if (mChunk.typeCode == CODE_fdAT) {
                 mPngStream.addDataChunk(new Fdat2IdatChunk(mChunk));
             } else {
@@ -134,36 +178,17 @@ public class ApngReader {
             mChunk.parseNext();
         }
 
-        mPngStream.resetPos();
+        // lock position for this frame's image as OutputStream
         mChunk.lockRead(dataOffset);
         frame.imageStream = mPngStream;
         return frame;
     }
 
-    private void saveToFile(InputStream is, String fn) {
-        try {
-            FileOutputStream fos = new FileOutputStream(fn);
-            byte[] buf = new byte[1];
-            int n = 0;
-            while ((n = is.read(buf)) > 0) {
-                fos.write(buf, 0, n);
-            }
-            fos.flush();
-            fos.close();
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
     /**
-     * reset read pointer to the ACTL chunk's position
+     * locate to the first chunk, and parse it
      */
     public void reset() {
-        if (mNextPosAfterActl > 0) {
-            mChunk.parsePrepare(mNextPosAfterActl);
-            mChunk.parse();
-        }
+        mChunk.parsePrepare(8);
+        mChunk.parse();
     }
 }
