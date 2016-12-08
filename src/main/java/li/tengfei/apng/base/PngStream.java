@@ -13,16 +13,16 @@ import java.util.zip.CRC32;
  */
 public class PngStream extends InputStream {
     // fast data
-    private static final byte[] PNG_SIG_DAT = {-119, 80, 78, 71, 13, 10, 26, 10};
-    private static final int PNG_SIG_LEN = PNG_SIG_DAT.length;
-    private static final byte[] PNG_IEND_DAT = {0, 0, 0, 0, 73, 69, 78, 68, -82, 66, 96, -126};
-    private static final int PNG_IEND_DAT_LEN = PNG_IEND_DAT.length;
-    private static final byte[] NODATA = {};
+    public static final byte[] PNG_SIG_DAT = {-119, 80, 78, 71, 13, 10, 26, 10};
+    public static final int PNG_SIG_LEN = PNG_SIG_DAT.length;
+    public static final byte[] PNG_IEND_DAT = {0, 0, 0, 0, 73, 69, 78, 68, -82, 66, 96, -126};
+    public static final int PNG_IEND_DAT_LEN = PNG_IEND_DAT.length;
+    public static final byte[] NODATA = {};
 
-    private static final int IHDR_LEN = 25;
-    private static final int IHDR_WIDTH_OFF = PNG_SIG_LEN + 8;  // width's offset in IHDR
-    private static final int IHDR_HEIGHT_OFF = IHDR_WIDTH_OFF + 4;
-    private static final int IHDR_CRC_OFF = PNG_SIG_LEN + IHDR_LEN - 4;
+    public static final int IHDR_LEN = 25;
+    public static final int IHDR_WIDTH_OFF = PNG_SIG_LEN + 8;  // width's offset in IHDR
+    public static final int IHDR_HEIGHT_OFF = IHDR_WIDTH_OFF + 4;
+    public static final int IHDR_CRC_OFF = PNG_SIG_LEN + IHDR_LEN - 4;
 
     private byte[] mHeadData = new byte[PNG_SIG_LEN + IHDR_LEN]; // cached PNG_SIG_VER and IHDR and PLTE(optional) data
     private int mHeadDataLen = PNG_SIG_LEN + IHDR_LEN;

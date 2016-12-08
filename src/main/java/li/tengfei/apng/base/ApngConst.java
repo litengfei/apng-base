@@ -2,6 +2,7 @@ package li.tengfei.apng.base;
 
 /**
  * Apng Const
+ *
  * @author ltf
  * @since 16/11/26, 下午3:26
  */
@@ -32,4 +33,7 @@ public class ApngConst {
     public static final int CODE_IDAT = 1229209940;
     public static final int CODE_fdAT = 1717846356;
     public static final int CODE_IEND = 1229278788;
+
+    // ".ang" format [ self extended apng format, optimized for speed, quality and size ]
+    //public static final int CODE_fcRC = 1717785155;
 }
