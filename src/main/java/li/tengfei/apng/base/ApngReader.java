@@ -43,6 +43,7 @@ public class ApngReader {
     private final ApngMmapParserChunk mChunk;
     private final PngStream mPngStream = new PngStream();
     private ApngACTLChunk mActlChunk;
+    private AngPatchChunk mPatchChunk;
 
     public ApngReader(String apngFile) throws IOException, FormatNotSupportException {
         RandomAccessFile f = new RandomAccessFile(apngFile, "r");
@@ -98,6 +99,14 @@ public class ApngReader {
     }
 
     /**
+     * hanlde paCH chunk( ANG patch chunk )
+     */
+    private void handlePatch(ApngMmapParserChunk chunk) throws IOException {
+        if (mPatchChunk == null) mPatchChunk = new AngPatchChunk();
+        chunk.assignTo(mPatchChunk);
+    }
+
+    /**
      * handle other's chunk
      */
     private void handleOtherChunk(ApngMmapParserChunk chunk) throws IOException {
@@ -126,10 +135,13 @@ public class ApngReader {
                     return null;
                 case CODE_IHDR:
                     mPngStream.setIHDR(mChunk.duplicateData());
+                    ihdrCopied = true;
+                    break;
+                case CODE_paCH:
+                    handlePatch(mChunk);
                     break;
                 case CODE_acTL:
                     handleACTL(mChunk);
-                    ihdrCopied = true;
                     break;
                 default:
                     handleOtherChunk(mChunk);
@@ -150,6 +162,9 @@ public class ApngReader {
                 case CODE_IHDR:
                     mPngStream.setIHDR(mChunk.duplicateData());
                     ihdrCopied = true;
+                    break;
+                case CODE_paCH:
+                    handlePatch(mChunk);
                     break;
                 case CODE_acTL:
                     handleACTL(mChunk);

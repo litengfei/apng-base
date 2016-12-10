@@ -5,6 +5,8 @@ import java.util.List;
 
 /**
  * Patch chunk for ANG
+ * <p>
+ * this chunk is designed for reusability, can be reused as an parser
  *
  * @author ltf
  * @since 16/12/10, 下午12:25
@@ -25,7 +27,9 @@ public class AngPatchChunk extends ApngDataChunk {
 
         // init data cache, first for parse header, then used to contains patch data
         int i = headersLen < dataLen ? dataLen : headersLen;
-        mData = new byte[i];
+        if (mData == null || mData.length < i) {
+            mData = new byte[i];
+        }
 
         // first, use data cache to parse headers
         data.read(mData, 0, headersLen);
