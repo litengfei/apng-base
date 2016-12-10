@@ -34,6 +34,7 @@ public class AngPatchChunk extends ApngDataChunk {
         // first, use data cache to parse headers
         data.read(mData, 0, headersLen);
         parsePatches(mData, 0, headersLen);
+
         // then, move patch data to cache
         data.read(mData, 0, dataLen);
     }
@@ -71,7 +72,7 @@ public class AngPatchChunk extends ApngDataChunk {
         mDInt.reset();
         offset += mDInt.read(buf, offset);
         patch.typeHash = mDInt.getValue();
-        patch.typeHashLen = mDInt.getSize();
+        patch.typeHashIndex = (byte) (mDInt.getSize() - 1);
 
         // step 2: get items count
         mDInt.reset();
@@ -122,9 +123,16 @@ public class AngPatchChunk extends ApngDataChunk {
         offset += mDInt.read(buf, offset);
         patchItem.size = mDInt.getValue();
 
-        // step 3: update srcOffset
+        // step 3: update srcOffset & data[]
+        patchItem.data = this.mData;
         patchItem.srcOffset = mDataOffset;
-        mDataOffset += patchItem.size;
+
+        if (patchItem.size == 0) {
+            // patchItem size == 0,  this is a DELETE patchItem, has 2 byte unsignedWord data
+            mDataOffset += 2;
+        } else {
+            mDataOffset += patchItem.size;
+        }
 
         return offset;
     }

@@ -3,7 +3,10 @@ package li.tengfei.apng.base;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.zip.CRC32;
+
+import static li.tengfei.apng.base.ApngConst.CODE_IHDR;
 
 /**
  * Png Stream Constructor to make png stream from apng frame
@@ -23,6 +26,7 @@ public class PngStream extends InputStream {
     public static final int IHDR_WIDTH_OFF = PNG_SIG_LEN + 8;  // width's offset in IHDR
     public static final int IHDR_HEIGHT_OFF = IHDR_WIDTH_OFF + 4;
     public static final int IHDR_CRC_OFF = PNG_SIG_LEN + IHDR_LEN - 4;
+    public static final int[] IHDR_TYPE_CODE_HASHES = AngPatch.typeCodeHashes(CODE_IHDR);
 
     private byte[] mHeadData = new byte[PNG_SIG_LEN + IHDR_LEN]; // cached PNG_SIG_VER and IHDR and PLTE(optional) data
     private int mHeadDataLen = PNG_SIG_LEN + IHDR_LEN;
@@ -41,6 +45,16 @@ public class PngStream extends InputStream {
 
     public PngStream() {
         System.arraycopy(PNG_SIG_DAT, 0, mHeadData, 0, PNG_SIG_LEN);
+    }
+
+    /**
+     * finally generate data crc value
+     */
+    static void intToArray(int val, byte[] arr, int offset) {
+        arr[offset] = (byte) (val >> 24 & 0xFF);
+        arr[offset + 1] = (byte) (val >> 16 & 0xFF);
+        arr[offset + 2] = (byte) (val >> 8 & 0xFF);
+        arr[offset + 3] = (byte) (val & 0xFF);
     }
 
     /**
@@ -88,9 +102,7 @@ public class PngStream extends InputStream {
 
         System.arraycopy(data, 0, mHeadData, block.offset, data.length);
 
-        /**
-         * remove blockInfo if nodata contains
-         */
+        // remove blockInfo if nodata contains
         if (data.length == 0) {
             if (block == mBlockInfos) {
                 mBlockInfos = null;
@@ -149,6 +161,123 @@ public class PngStream extends InputStream {
             return block;
         }
         return null;
+    }
+
+    /**
+     * locate BlockInfo by typeCode's hash
+     *
+     * @param typeCodeHash      typeCode's hash value
+     * @param typeCodeHashIndex typeCode's hash type index
+     * @return blockInfo, or null if not exists in HeadData
+     */
+    private BlockInfo getBlockInfo(final int typeCodeHash, final byte typeCodeHashIndex) {
+        BlockInfo block = mBlockInfos;
+        while (block != null) {
+            if (block.typeCodeHashes[typeCodeHashIndex] == typeCodeHash) {
+                return block;
+            }
+            block = block.next;
+        }
+        return null;
+    }
+
+    /**
+     * apply patches to HeadData or IHDR
+     */
+    void applyPatches(List<AngPatch> patches) {
+        for (AngPatch patch : patches) {
+            if (IHDR_TYPE_CODE_HASHES[patch.typeHashIndex] == patch.typeHash) {
+                // applay patch to IHDR,
+                for (AngPatchItem item : patch.items) patchIHDR(item);
+            } else {
+                // applay patch to others HeadData
+                BlockInfo blockInfo = getBlockInfo(patch.typeHash, patch.typeHashIndex);
+                if (blockInfo == null) continue;
+                for (AngPatchItem item : patch.items) patchHeadData(blockInfo, item);
+            }
+        }
+    }
+
+    /**
+     * apply patch to IHDR
+     */
+    private void patchIHDR(AngPatchItem patchItem) {
+        // IHDR is a fixed size destination
+        int count = IHDR_LEN - patchItem.dstOffset;
+        count -= count < patchItem.size ? count : patchItem.size;
+        System.arraycopy(
+                patchItem.data, patchItem.srcOffset,
+                mHeadData, PNG_SIG_LEN + patchItem.dstOffset,
+                count);
+    }
+
+    /**
+     * apply patch to (other types) HeadData
+     */
+    private void patchHeadData(BlockInfo blockInfo, AngPatchItem patchItem) {
+        final int oldLen = blockInfo.len;
+        if (patchItem.size == 0) {
+            //////// DELETE data patch ////////
+            int delSize = (patchItem.data[patchItem.srcOffset] & 0xFF) << 8 |
+                    (patchItem.data[patchItem.srcOffset + 1] & 0xFF);
+
+            delSize = delSize < blockInfo.len - patchItem.dstOffset ? delSize : blockInfo.len - patchItem.dstOffset;
+            if (delSize > 0) {
+                // move suffix data
+                System.arraycopy(
+                        mHeadData, patchItem.dstOffset + delSize,
+                        mHeadData, patchItem.dstOffset,
+                        mHeadDataLen - (patchItem.dstOffset + delSize));
+
+                // update data size
+                blockInfo.len -= delSize;
+                mHeadDataLen -= delSize;
+
+                // remove blockInfo if nodata contains
+                if (blockInfo.len == 0) {
+                    if (blockInfo == mBlockInfos) {
+                        mBlockInfos = null;
+                    } else {
+                        BlockInfo pre = blockInfo.pre;
+                        pre.next = blockInfo.next;
+                        if (pre.next != null) pre.next.pre = pre;
+                    }
+                }
+            }
+        } else {
+            //////// normal patch, MODIFY or ADD data ////////
+            int newLen = patchItem.dstOffset + patchItem.size;
+            newLen = newLen < oldLen ? oldLen : newLen;
+            if (newLen > oldLen) {
+                int incrSize = newLen - oldLen;
+                int suffixOff = blockInfo.offset + blockInfo.len;
+                int suffixSize = oldLen - suffixOff;
+                byte[] oldData = mHeadData;
+                if (mHeadData.length < mHeadDataLen + incrSize) {
+                    mHeadData = new byte[mHeadDataLen + incrSize];
+                    // move prefix data
+                    System.arraycopy(
+                            oldData, 0,
+                            mHeadData, 0,
+                            blockInfo.offset + patchItem.dstOffset);
+                }
+                // move suffix data
+                System.arraycopy(
+                        oldData, suffixOff,
+                        mHeadData, suffixOff + incrSize,
+                        suffixSize);
+
+                // update data size
+                blockInfo.len = newLen;
+                mHeadDataLen += incrSize;
+            }
+
+            // move patch data
+            System.arraycopy(
+                    patchItem.data, patchItem.srcOffset,
+                    mHeadData, blockInfo.offset + patchItem.dstOffset,
+                    patchItem.size);
+        }
     }
 
     /**
@@ -233,27 +362,19 @@ public class PngStream extends InputStream {
     }
 
     /**
-     * finally generate data crc value
-     */
-    static void intToArray(int val, byte[] arr, int offset) {
-        arr[offset] = (byte) (val >> 24 & 0xFF);
-        arr[offset + 1] = (byte) (val >> 16 & 0xFF);
-        arr[offset + 2] = (byte) (val >> 8 & 0xFF);
-        arr[offset + 3] = (byte) (val & 0xFF);
-    }
-
-    /**
      * Head data block info
      */
     private static class BlockInfo {
-        private int typeCode;
+        int[] typeCodeHashes;
         int offset;
         int len;
         BlockInfo pre;
         BlockInfo next;
+        private int typeCode;
 
         public BlockInfo(int typeCode) {
             this.typeCode = typeCode;
+            this.typeCodeHashes = AngPatch.typeCodeHashes(typeCode);
         }
     }
 }

@@ -104,6 +104,7 @@ public class ApngReader {
     private void handlePatch(ApngMmapParserChunk chunk) throws IOException {
         if (mPatchChunk == null) mPatchChunk = new AngPatchChunk();
         chunk.assignTo(mPatchChunk);
+        mPngStream.applyPatches(mPatchChunk.mPatches);
     }
 
     /**
