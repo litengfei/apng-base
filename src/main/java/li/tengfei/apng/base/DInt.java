@@ -1,4 +1,4 @@
-package li.tengfei.apng.base.patch;
+package li.tengfei.apng.base;
 
 /**
  * Dynamic Integer
@@ -39,13 +39,13 @@ public class DInt {
      * add one byte to the DInt
      *
      * @param data data byte
-     * @return true if the DInt read finished, false if not
+     * @return true if the DInt need next byte, false if not
      */
     public boolean addByte(byte data) {
         if (size > 3) throw new IllegalStateException("DInt read more than 4 bytes data");
-        boolean lastByte = size == 3;
-        value |= lastByte ? (data & 0xff) << (7 * size++) : (data & VALUE_MASK) << (7 * size++);
-        return (data & END_BYTE_MASK) == 0 || lastByte;
+        boolean notLastByte = size != 3;
+        value |= notLastByte ? (data & VALUE_MASK) << (7 * size++) : (data & 0xff) << (7 * size++);
+        return (data & END_BYTE_MASK) != 0 && notLastByte;
     }
 
     /**
@@ -56,7 +56,7 @@ public class DInt {
      * @return size of DInt
      */
     public byte read(byte[] data, int offset) {
-        while (!addByte(data[offset + size])) ;
+        while (addByte(data[offset + size])) ;
         return size;
     }
 
@@ -69,7 +69,7 @@ public class DInt {
      * @return the DInt value
      */
     public int readValue(byte[] data, int offset, byte[] readedBytes) {
-        while (!addByte(data[offset + size])) ;
+        while (addByte(data[offset + size])) ;
         readedBytes[0] = size;
         return value;
     }

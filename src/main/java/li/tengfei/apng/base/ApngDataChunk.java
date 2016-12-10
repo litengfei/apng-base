@@ -8,7 +8,7 @@ package li.tengfei.apng.base;
  */
 public abstract class ApngDataChunk extends ApngChunk {
 
-    public void parse(ApngDataSupplier data) {
+    public final void parse(ApngDataSupplier data) {
         length = data.readInt();
         typeCode = data.readInt();
         parseData(data);

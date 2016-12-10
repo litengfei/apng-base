@@ -22,6 +22,16 @@ public interface ApngDataSupplier {
     byte readByte();
 
     /**
+     * read byte arrays from data and move the pointer ahead by readed data length
+     *
+     * @param dst       destination array
+     * @param dstOffset first byte offset in destination array
+     * @param size      wanted size
+     * @return readed bytes count
+     */
+    int read(byte[] dst, int dstOffset, int size);
+
+    /**
      * move the pointer ahead by distance bytes
      */
     void move(int distance);

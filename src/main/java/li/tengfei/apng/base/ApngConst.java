@@ -35,5 +35,5 @@ public class ApngConst {
     public static final int CODE_IEND = 1229278788;
 
     // ".ang" format [ self extended apng format, optimized for speed, quality and size ]
-    //public static final int CODE_fcRC = 1717785155;
+    public static final int CODE_paCH = 1885422408; // patch chunk
 }

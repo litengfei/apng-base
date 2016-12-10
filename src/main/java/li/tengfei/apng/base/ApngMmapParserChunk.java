@@ -50,6 +50,14 @@ public class ApngMmapParserChunk extends ApngPaserChunk {
     }
 
     @Override
+    public int read(byte[] dst, int dstOffset, int size) {
+        int count = mBuf.remaining();
+        count = count < size ? count : size;
+        mBuf.get(dst, dstOffset, count);
+        return count;
+    }
+
+    @Override
     public void move(int distance) {
         mBuf.position(mBuf.position() + distance);
     }
