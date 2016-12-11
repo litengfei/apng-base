@@ -21,6 +21,7 @@ public class AngPatchChunk extends ApngDataChunk {
     @Override
     protected void parseData(ApngDataSupplier data) {
         // get headers length and data length
+        mDInt.reset();
         while (mDInt.addByte(data.readByte())) ;
         int headersLen = mDInt.getValue();
         int dataLen = length - mDInt.getSize() - headersLen;
