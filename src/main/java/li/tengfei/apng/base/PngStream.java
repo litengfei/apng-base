@@ -251,7 +251,7 @@ public class PngStream extends InputStream {
             if (newLen > oldLen) {
                 int incrSize = newLen - oldLen;
                 int suffixOff = blockInfo.offset + blockInfo.len;
-                int suffixSize = oldLen - suffixOff;
+                int suffixSize = mHeadDataLen - suffixOff;
                 byte[] oldData = mHeadData;
                 if (mHeadData.length < mHeadDataLen + incrSize) {
                     mHeadData = new byte[mHeadDataLen + incrSize];
