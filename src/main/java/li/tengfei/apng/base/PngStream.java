@@ -214,32 +214,34 @@ public class PngStream extends InputStream {
     /**
      * apply patch to (other types) HeadData
      */
-    private void patchHeadData(BlockInfo blockInfo, AngPatchItem patchItem) {
-        final int oldLen = blockInfo.len;
+    private void patchHeadData(BlockInfo block, AngPatchItem patchItem) {
+        final int oldLen = block.len;
         if (patchItem.size == 0) {
             //////// DELETE data patch ////////
             int delSize = (patchItem.data[patchItem.srcOffset] & 0xFF) << 8 |
                     (patchItem.data[patchItem.srcOffset + 1] & 0xFF);
 
-            delSize = delSize < blockInfo.len - patchItem.dstOffset ? delSize : blockInfo.len - patchItem.dstOffset;
+            delSize = delSize < block.len - patchItem.dstOffset ? delSize : block.len - patchItem.dstOffset;
             if (delSize > 0) {
                 // move suffix data
+                int delOffset = block.offset + patchItem.dstOffset;
                 System.arraycopy(
-                        mHeadData, patchItem.dstOffset + delSize,
-                        mHeadData, patchItem.dstOffset,
-                        mHeadDataLen - (patchItem.dstOffset + delSize));
+                        mHeadData, delOffset + delSize,
+                        mHeadData, delOffset,
+                        mHeadDataLen - (delOffset + delSize));
 
                 // update data size
-                blockInfo.len -= delSize;
+                block.len -= delSize;
                 mHeadDataLen -= delSize;
+                updateNextOffsetTillEnd(block, -delSize);
 
                 // remove blockInfo if nodata contains
-                if (blockInfo.len == 0) {
-                    if (blockInfo == mBlockInfos) {
+                if (block.len == 0) {
+                    if (block == mBlockInfos) {
                         mBlockInfos = null;
                     } else {
-                        BlockInfo pre = blockInfo.pre;
-                        pre.next = blockInfo.next;
+                        BlockInfo pre = block.pre;
+                        pre.next = block.next;
                         if (pre.next != null) pre.next.pre = pre;
                     }
                 }
@@ -250,7 +252,7 @@ public class PngStream extends InputStream {
             newLen = newLen < oldLen ? oldLen : newLen;
             if (newLen > oldLen) {
                 int incrSize = newLen - oldLen;
-                int suffixOff = blockInfo.offset + blockInfo.len;
+                int suffixOff = block.offset + block.len;
                 int suffixSize = mHeadDataLen - suffixOff;
                 byte[] oldData = mHeadData;
                 if (mHeadData.length < mHeadDataLen + incrSize) {
@@ -259,7 +261,7 @@ public class PngStream extends InputStream {
                     System.arraycopy(
                             oldData, 0,
                             mHeadData, 0,
-                            blockInfo.offset + patchItem.dstOffset);
+                            block.offset + patchItem.dstOffset);
                 }
                 // move suffix data
                 System.arraycopy(
@@ -268,14 +270,15 @@ public class PngStream extends InputStream {
                         suffixSize);
 
                 // update data size
-                blockInfo.len = newLen;
+                block.len = newLen;
+                updateNextOffsetTillEnd(block, incrSize);
                 mHeadDataLen += incrSize;
             }
 
             // move patch data
             System.arraycopy(
                     patchItem.data, patchItem.srcOffset,
-                    mHeadData, blockInfo.offset + patchItem.dstOffset,
+                    mHeadData, block.offset + patchItem.dstOffset,
                     patchItem.size);
         }
     }
