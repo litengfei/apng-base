@@ -235,7 +235,7 @@ public class PngStream extends InputStream {
     /**
      * finally generate data crc value
      */
-    static void intToArray(int val, byte[] arr, int offset) {
+    public static void intToArray(int val, byte[] arr, int offset) {
         arr[offset] = (byte) (val >> 24 & 0xFF);
         arr[offset + 1] = (byte) (val >> 16 & 0xFF);
         arr[offset + 2] = (byte) (val >> 8 & 0xFF);
